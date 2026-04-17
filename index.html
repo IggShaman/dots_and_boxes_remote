@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dots &amp; Boxes</title>
+
+  <link href="https://unpkg.com/normalize.css@8/normalize.css" rel="stylesheet" />
+  <link href="https://unpkg.com/@blueprintjs/icons@5/lib/css/blueprint-icons.css" rel="stylesheet" />
+  <link href="https://unpkg.com/@blueprintjs/core@5/lib/css/blueprint.css" rel="stylesheet" />
+
+  <style>
+    html, body, #root {
+      height: 100%;
+      margin: 0;
+    }
+    body {
+      background-color: #1c2127;
+    }
+    #root {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 48px 16px;
+    }
+
+    .app-title {
+      font-size: 3rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-align: center;
+      margin: 0 0 8px;
+      background: linear-gradient(135deg, #8be9fd 0%, #bd93f9 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .app-subtitle {
+      text-align: center;
+      color: #8f99a8;
+      margin: 0 0 48px;
+      font-size: 1rem;
+    }
+
+    .players-row {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      justify-content: center;
+      width: 100%;
+      max-width: 680px;
+      margin-bottom: 32px;
+    }
+
+    .player-card {
+      flex: 1;
+      min-width: 280px;
+      max-width: 320px;
+    }
+
+    .player-card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .player-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      font-weight: 700;
+      font-size: 0.85rem;
+      flex-shrink: 0;
+    }
+    .player-card-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #f5f8fa;
+      margin: 0;
+    }
+
+    .color-swatches {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .color-swatch {
+      width: 34px;
+      height: 34px;
+      border-radius: 6px;
+      cursor: pointer;
+      border: 3px solid transparent;
+      transition: transform 0.1s, border-color 0.1s, opacity 0.15s;
+      box-sizing: border-box;
+    }
+    .color-swatch:hover:not(.swatch-taken) {
+      transform: scale(1.15);
+    }
+    .color-swatch.swatch-selected {
+      border-color: #ffffff;
+      transform: scale(1.1);
+    }
+    .color-swatch.swatch-taken {
+      opacity: 0.2;
+      cursor: not-allowed;
+    }
+
+    .player-preview {
+      margin-top: 20px;
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 1rem;
+      text-align: center;
+      color: #fff;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+      transition: background-color 0.2s;
+    }
+
+    .start-row {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .color-conflict-msg {
+      color: #ff6b6b;
+      font-size: 0.85rem;
+    }
+
+    .game-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+      padding: 48px;
+      color: #f5f8fa;
+    }
+    .game-placeholder h2 {
+      margin: 0;
+      font-size: 1.6rem;
+    }
+    .vs-row {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      font-size: 1.2rem;
+    }
+    .player-chip {
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+  </style>
+</head>
+<body class="bp5-dark">
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@blueprintjs/core@5/lib/umd/core.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script type="text/babel">
+    const {
+      Button, Card, Elevation, FormGroup, InputGroup, Intent,
+    } = Blueprint;
+
+    // ── Constants ──────────────────────────────────────────────────────────────
+
+    const PALETTE = [
+      { label: 'Crimson',   value: '#e03131' },
+      { label: 'Cobalt',    value: '#1971c2' },
+      { label: 'Violet',    value: '#7048e8' },
+      { label: 'Emerald',   value: '#2f9e44' },
+      { label: 'Tangerine', value: '#e67700' },
+      { label: 'Teal',      value: '#0c8599' },
+      { label: 'Rose',      value: '#c2255c' },
+      { label: 'Marigold',  value: '#c98a00' },
+    ];
+
+    const DEFAULT_PLAYERS = [
+      { name: 'Jungkook',  color: PALETTE[0] },
+      { name: 'Rosé',      color: PALETTE[1] },
+    ];
+
+    // ── ColorPicker ────────────────────────────────────────────────────────────
+
+    function ColorPicker({ selected, takenValue, onChange }) {
+      return (
+        <div className="color-swatches">
+          {PALETTE.map(color => {
+            const isTaken    = color.value === takenValue;
+            const isSelected = color.value === selected.value;
+            let cls = 'color-swatch';
+            if (isSelected) cls += ' swatch-selected';
+            if (isTaken)    cls += ' swatch-taken';
+
+            return (
+              <div
+                key={color.value}
+                className={cls}
+                style={{ backgroundColor: color.value }}
+                title={isTaken ? `${color.label} (taken)` : color.label}
+                onClick={() => { if (!isTaken) onChange(color); }}
+              />
+            );
+          })}
+        </div>
+      );
+    }
+
+    // ── PlayerCard ─────────────────────────────────────────────────────────────
+
+    function PlayerCard({ number, player, otherColor, onChange }) {
+      return (
+        <Card elevation={Elevation.THREE} className="player-card">
+          <div className="player-card-header">
+            <span
+              className="player-badge"
+              style={{ backgroundColor: player.color.value, color: '#fff' }}
+            >
+              {number}
+            </span>
+            <p className="player-card-title">Player {number}</p>
+          </div>
+
+          <FormGroup label="Name">
+            <InputGroup
+              value={player.name}
+              onChange={e => onChange({ ...player, name: e.target.value })}
+              placeholder="Enter name…"
+              large
+            />
+          </FormGroup>
+
+          <FormGroup label="Color">
+            <ColorPicker
+              selected={player.color}
+              takenValue={otherColor}
+              onChange={color => onChange({ ...player, color })}
+            />
+          </FormGroup>
+
+          <div
+            className="player-preview"
+            style={{ backgroundColor: player.color.value }}
+          >
+            {player.name.trim() || `Player ${number}`}
+          </div>
+        </Card>
+      );
+    }
+
+    // ── NewGameScreen ──────────────────────────────────────────────────────────
+
+    function NewGameScreen({ onStart }) {
+      const [players, setPlayers] = React.useState(DEFAULT_PLAYERS);
+
+      const update = (index, updated) =>
+        setPlayers(prev => prev.map((p, i) => (i === index ? updated : p)));
+
+      const namesOk     = players.every(p => p.name.trim().length > 0);
+      const colorsOk    = players[0].color.value !== players[1].color.value;
+      const canStart    = namesOk && colorsOk;
+
+      return (
+        <>
+          <h1 className="app-title">Dots &amp; Boxes</h1>
+          <p className="app-subtitle">A two-player game of lines and squares</p>
+
+          <div className="players-row">
+            <PlayerCard
+              number={1}
+              player={players[0]}
+              otherColor={players[1].color.value}
+              onChange={p => update(0, p)}
+            />
+            <PlayerCard
+              number={2}
+              player={players[1]}
+              otherColor={players[0].color.value}
+              onChange={p => update(1, p)}
+            />
+          </div>
+
+          <div className="start-row">
+            {!colorsOk && (
+              <span className="color-conflict-msg">
+                Players must choose different colors.
+              </span>
+            )}
+            <Button
+              large
+              intent={Intent.PRIMARY}
+              disabled={!canStart}
+              onClick={() => onStart(players)}
+              icon="play"
+              text="Start Game"
+            />
+          </div>
+        </>
+      );
+    }
+
+    // ── GameScreen (placeholder) ───────────────────────────────────────────────
+
+    function GameScreen({ config, onNewGame }) {
+      const [p1, p2] = config.players;
+      return (
+        <div className="game-placeholder">
+          <h2>Game Board</h2>
+          <div className="vs-row">
+            <span className="player-chip" style={{ backgroundColor: p1.color.value }}>
+              {p1.name}
+            </span>
+            <span style={{ color: '#8f99a8' }}>vs</span>
+            <span className="player-chip" style={{ backgroundColor: p2.color.value }}>
+              {p2.name}
+            </span>
+          </div>
+          <p style={{ color: '#8f99a8', margin: 0 }}>
+            Game board coming soon…
+          </p>
+          <Button intent={Intent.NONE} icon="arrow-left" text="New Game" onClick={onNewGame} />
+        </div>
+      );
+    }
+
+    // ── App ────────────────────────────────────────────────────────────────────
+
+    function App() {
+      const [screen, setScreen] = React.useState('new-game');
+      const [config, setConfig]  = React.useState(null);
+
+      const handleStart = (players) => {
+        setConfig({ players });
+        setScreen('game');
+      };
+
+      if (screen === 'game') {
+        return <GameScreen config={config} onNewGame={() => setScreen('new-game')} />;
+      }
+      return <NewGameScreen onStart={handleStart} />;
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
