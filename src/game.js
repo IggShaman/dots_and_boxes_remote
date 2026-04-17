@@ -29,8 +29,6 @@ function isAdjacent(r1, c1, r2, c2) {
 export function isValidMove(state, r1, c1, r2, c2) {
   if (!isAdjacent(r1, c1, r2, c2)) return false;
   if (getLine(state.hLines, state.vLines, r1, c1, r2, c2) !== null) return false;
-  // At least one endpoint must be free (uncolored)
-  if (state.points[r1][c1] !== null && state.points[r2][c2] !== null) return false;
   return true;
 }
 
