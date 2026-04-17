@@ -4,15 +4,16 @@ html, body, #root {
 }
 body {
   background-color: #1c2127;
-  /* Blueprint dark theme requires this class */
 }
 #root {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding: 48px 16px;
+  padding: 40px 16px 60px;
 }
+
+/* ── Title ──────────────────────────────────────────────────────────────── */
 
 .app-title {
   font-size: 3rem;
@@ -28,20 +29,21 @@ body {
 .app-subtitle {
   text-align: center;
   color: #8f99a8;
-  margin: 0 0 48px;
+  margin: 0 0 40px;
   font-size: 1rem;
 }
+
+/* ── New-game screen ─────────────────────────────────────────────────────── */
 
 .players-row {
   display: flex;
   gap: 24px;
   flex-wrap: wrap;
   justify-content: center;
+  max-width: 700px;
   width: 100%;
-  max-width: 680px;
   margin-bottom: 32px;
 }
-
 .player-card {
   flex: 1;
   min-width: 280px;
@@ -71,7 +73,6 @@ body {
   color: #f5f8fa;
   margin: 0;
 }
-
 .color-swatches {
   display: flex;
   gap: 8px;
@@ -86,30 +87,19 @@ body {
   transition: transform 0.1s, border-color 0.1s, opacity 0.15s;
   box-sizing: border-box;
 }
-.color-swatch:hover:not(.swatch-taken) {
-  transform: scale(1.15);
-}
-.color-swatch.swatch-selected {
-  border-color: #ffffff;
-  transform: scale(1.1);
-}
-.color-swatch.swatch-taken {
-  opacity: 0.2;
-  cursor: not-allowed;
-}
-
+.color-swatch:hover:not(.swatch-taken) { transform: scale(1.15); }
+.color-swatch.swatch-selected { border-color: #fff; transform: scale(1.1); }
+.color-swatch.swatch-taken    { opacity: 0.2; cursor: not-allowed; }
 .player-preview {
   margin-top: 20px;
   padding: 10px 16px;
   border-radius: 6px;
   font-weight: 700;
-  font-size: 1rem;
   text-align: center;
   color: #fff;
   text-shadow: 0 1px 3px rgba(0,0,0,0.5);
   transition: background-color 0.2s;
 }
-
 .start-row {
   display: flex;
   flex-direction: column;
@@ -121,28 +111,63 @@ body {
   font-size: 0.85rem;
 }
 
-.game-placeholder {
+/* ── Game screen ─────────────────────────────────────────────────────────── */
+
+.game-screen {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 24px;
-  padding: 48px;
-  color: #f5f8fa;
+  gap: 0;
+  width: 100%;
 }
-.game-placeholder h2 {
-  margin: 0;
-  font-size: 1.6rem;
+
+.score-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
 }
-.vs-row {
+.score-card {
   display: flex;
   align-items: center;
-  gap: 20px;
-  font-size: 1.2rem;
+  gap: 10px;
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background: #252a31;
+  transition: border-color 0.2s, background 0.2s;
+  min-width: 160px;
 }
-.player-chip {
-  padding: 6px 16px;
-  border-radius: 20px;
+.score-card.score-active {
+  border-color: var(--accent);
+  background: #2a2f38;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.score-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.score-name {
+  flex: 1;
+  font-weight: 600;
+  color: #f5f8fa;
+  font-size: 1rem;
+}
+.score-num {
   font-weight: 700;
-  color: #fff;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  font-size: 1.1rem;
+}
+
+.turn-banner {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+  min-height: 1.6em;
+  transition: color 0.3s;
+}
+
+.board-card {
+  padding: 12px !important;
+  background: #1e2229 !important;
 }
