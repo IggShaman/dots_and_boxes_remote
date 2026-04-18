@@ -7,6 +7,8 @@ pub const GRID_SIZE: usize = 6;
 pub enum Player {
     Player1,
     Player2,
+    /// Pre-drawn border lines in Swedish mode. Never used for squares or current_player.
+    Border,
 }
 
 impl Player {
@@ -14,6 +16,7 @@ impl Player {
         match self {
             Player::Player1 => Player::Player2,
             Player::Player2 => Player::Player1,
+            Player::Border  => Player::Border,
         }
     }
 }
@@ -28,22 +31,18 @@ pub struct Scores {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GameState {
-    /// points[r][c]: which player colored this point, if any
-    pub points: Vec<Vec<Option<Player>>>,
-    /// hLines[r][c]: line from (r,c)→(r,c+1), c ∈ [0, GRID_SIZE-2]
+    pub points:  Vec<Vec<Option<Player>>>,
     pub h_lines: Vec<Vec<Option<Player>>>,
-    /// vLines[r][c]: line from (r,c)→(r+1,c), r ∈ [0, GRID_SIZE-2]
     pub v_lines: Vec<Vec<Option<Player>>>,
-    /// squares[sr][sc]: owner of square with top-left at (sr,sc)
     pub squares: Vec<Vec<Option<Player>>>,
-    pub scores: Scores,
+    pub scores:  Scores,
     pub current_player: Player,
     pub game_over: bool,
 }
 
 impl GameState {
-    pub fn new() -> Self {
-        GameState {
+    pub fn new(swedish_mode: bool) -> Self {
+        let mut state = GameState {
             points:  vec![vec![None; GRID_SIZE]; GRID_SIZE],
             h_lines: vec![vec![None; GRID_SIZE - 1]; GRID_SIZE],
             v_lines: vec![vec![None; GRID_SIZE]; GRID_SIZE - 1],
@@ -51,7 +50,19 @@ impl GameState {
             scores:  Scores { player1: 0, player2: 0 },
             current_player: Player::Player1,
             game_over: false,
+        };
+        if swedish_mode {
+            // Pre-draw all four border edges in silver aurora color.
+            for c in 0..GRID_SIZE - 1 {
+                state.h_lines[0][c]             = Some(Player::Border); // top
+                state.h_lines[GRID_SIZE - 1][c] = Some(Player::Border); // bottom
+            }
+            for r in 0..GRID_SIZE - 1 {
+                state.v_lines[r][0]             = Some(Player::Border); // left
+                state.v_lines[r][GRID_SIZE - 1] = Some(Player::Border); // right
+            }
         }
+        state
     }
 
     fn get_line(&self, r1: usize, c1: usize, r2: usize, c2: usize) -> Option<Player> {
@@ -82,7 +93,6 @@ impl GameState {
         out
     }
 
-    /// Apply a move. Returns `false` if the move is invalid.
     pub fn make_move(&mut self, r1: usize, c1: usize, r2: usize, c2: usize) -> bool {
         if !self.is_valid_move(r1, c1, r2, c2) {
             return false;
@@ -114,6 +124,7 @@ impl GameState {
         match player {
             Player::Player1 => self.scores.player1 += gained,
             Player::Player2 => self.scores.player2 += gained,
+            Player::Border  => {}
         }
 
         if gained == 0 {

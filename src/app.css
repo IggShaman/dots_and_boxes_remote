@@ -194,3 +194,18 @@ body {
   font-weight: 400;
   color: #8f99a8;
 }
+
+/* ── Swedish mode badge ──────────────────────────────────────────────────── */
+
+.swedish-badge {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #aabbc4;
+  border: 1px solid #aabbc4;
+  border-radius: 4px;
+  padding: 2px 8px;
+  margin-bottom: 12px;
+  opacity: 0.8;
+}

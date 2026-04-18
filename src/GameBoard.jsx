@@ -13,7 +13,11 @@ export function GameBoard({ gameState, players, selectedPoint, onPointClick, int
   const [hovered, setHovered] = useState(null);
   const { points, hLines, vLines, squares, currentPlayer, gameOver } = gameState;
 
-  const pcolor = key => key === 'player1' ? players[0].color.value : players[1].color.value;
+  const BORDER_COLOR = '#aabbc4'; // silver aurora — pre-drawn lines in Swedish mode
+  const pcolor = key => {
+    if (key === 'border') return BORDER_COLOR;
+    return key === 'player1' ? players[0].color.value : players[1].color.value;
+  };
   const curColor = pcolor(currentPlayer);
 
   const valids = selectedPoint && interactive

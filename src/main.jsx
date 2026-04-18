@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import {
-  Button, Card, Elevation, FormGroup, InputGroup, Intent, Spinner,
+  Button, Card, Elevation, FormGroup, InputGroup, Intent, Spinner, Switch,
 } from '@blueprintjs/core';
 import '@blueprintjs/icons/lib/css/blueprint-icons.css';
 import '@blueprintjs/core/lib/css/blueprint.css';
@@ -48,8 +48,9 @@ function ColorPicker({ selected, onChange }) {
 // ── Join screen ────────────────────────────────────────────────────────────
 
 function JoinScreen({ onJoin, connecting }) {
-  const [name,  setName]  = useState('');
-  const [color, setColor] = useState(PALETTE[0]);
+  const [name,        setName]        = useState('');
+  const [color,       setColor]       = useState(PALETTE[0]);
+  const [swedishMode, setSwedishMode] = useState(false);
 
   return (
     <>
@@ -76,6 +77,14 @@ function JoinScreen({ onJoin, connecting }) {
         <div className="player-preview" style={{ backgroundColor: color.value }}>
           {name.trim() || 'You'}
         </div>
+        <div style={{ marginTop: 16 }}>
+          <Switch
+            checked={swedishMode}
+            onChange={e => setSwedishMode(e.target.checked)}
+            label="Swedish mode — border lines pre-drawn"
+            disabled={connecting}
+          />
+        </div>
       </Card>
 
       <div className="start-row" style={{ marginTop: 24 }}>
@@ -83,7 +92,7 @@ function JoinScreen({ onJoin, connecting }) {
           large intent={Intent.PRIMARY}
           disabled={!name.trim() || connecting}
           loading={connecting}
-          onClick={() => onJoin({ name: name.trim(), color })}
+          onClick={() => onJoin({ name: name.trim(), color, swedishMode })}
           icon="people"
           text="Find Game"
         />
@@ -107,7 +116,7 @@ function WaitingScreen({ onCancel }) {
 
 // ── Game screen ────────────────────────────────────────────────────────────
 
-function GameScreen({ gameState, players, youAre, disconnected, onMove, onNewGame }) {
+function GameScreen({ gameState, players, youAre, swedishMode, disconnected, onMove, onNewGame }) {
   const [selected, setSelected] = useState(null);
 
   // Clear selection whenever the board state changes (after any move).
@@ -185,6 +194,11 @@ function GameScreen({ gameState, players, youAre, disconnected, onMove, onNewGam
         })}
       </div>
 
+      {/* Swedish mode badge */}
+      {swedishMode && (
+        <div className="swedish-badge">Swedish mode</div>
+      )}
+
       {/* Turn / result banner */}
       <div className="turn-banner" style={{ color: bannerColor }}>
         {bannerText}
@@ -216,6 +230,7 @@ function App() {
   const [youAre,       setYouAre]       = useState(null);   // 'player1' | 'player2'
   const [opponentInfo, setOpponentInfo] = useState(null);   // { name, color }
   const [gameState,    setGameState]    = useState(null);
+  const [swedishMode,  setSwedishMode]  = useState(false);
 
   const wsRef     = useRef(null);
   const screenRef = useRef(screen);
@@ -229,7 +244,7 @@ function App() {
     wsRef.current = ws;
 
     ws.onopen = () => {
-      ws.send(JSON.stringify({ type: 'join', name: config.name, color: config.color.value }));
+      ws.send(JSON.stringify({ type: 'join', name: config.name, color: config.color.value, swedish_mode: config.swedishMode }));
     };
 
     ws.onmessage = (evt) => {
@@ -241,6 +256,7 @@ function App() {
         case 'game_start':
           setYouAre(msg.you_are);
           setOpponentInfo({ name: msg.opponent_name, color: msg.opponent_color });
+          setSwedishMode(msg.swedish_mode);
           setGameState(null);
           setScreen('game');
           break;
@@ -267,13 +283,14 @@ function App() {
 
   const handleNewGame = () => {
     if (wsRef.current) {
-      wsRef.current.onclose = null; // suppress the onclose transition
+      wsRef.current.onclose = null;
       wsRef.current.close();
       wsRef.current = null;
     }
     setGameState(null);
     setYouAre(null);
     setOpponentInfo(null);
+    setSwedishMode(false);
     setScreen('join');
   };
 
@@ -305,6 +322,7 @@ function App() {
       gameState={gameState}
       players={players}
       youAre={youAre}
+      swedishMode={swedishMode}
       disconnected={screen === 'disconnected'}
       onMove={sendMove}
       onNewGame={handleNewGame}

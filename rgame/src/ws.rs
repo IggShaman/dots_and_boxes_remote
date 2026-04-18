@@ -11,7 +11,6 @@ pub async fn handle_socket(socket: WebSocket, lobby: SharedLobby) {
     let (mut sink, mut stream) = socket.split();
     let (tx, mut rx) = mpsc::unbounded_channel::<ServerMsg>();
 
-    // Forward outbound ServerMsgs to the WebSocket.
     tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
             let json = serde_json::to_string(&msg).unwrap();
@@ -22,12 +21,12 @@ pub async fn handle_socket(socket: WebSocket, lobby: SharedLobby) {
     });
 
     // ── Phase 1: wait for Join ───────────────────────────────────────────────
-    let (name, color) = loop {
+    let (name, color, swedish_mode) = loop {
         match stream.next().await {
             Some(Ok(Message::Text(text))) => {
                 match serde_json::from_str::<ClientMsg>(&text) {
-                    Ok(ClientMsg::Join { name, color }) if !name.trim().is_empty() => {
-                        break (name.trim().to_string(), color);
+                    Ok(ClientMsg::Join { name, color, swedish_mode }) if !name.trim().is_empty() => {
+                        break (name.trim().to_string(), color, swedish_mode);
                     }
                     _ => {
                         let _ = tx.send(ServerMsg::Error {
@@ -41,65 +40,64 @@ pub async fn handle_socket(socket: WebSocket, lobby: SharedLobby) {
     };
 
     // ── Phase 2: matchmaking ─────────────────────────────────────────────────
+    // Player1's swedish_mode preference is used for the session.
     let (session_id, player_idx) = {
         let mut guard = lobby.lock().await;
 
         if let Some(waiter) = guard.waiting.take() {
-            // We are player2 — create the session immediately.
             let id = Uuid::new_v4();
+            let mode = waiter.swedish_mode;
             let session = GameSession::new(
                 id,
                 waiter.tx.clone(), waiter.name.clone(), waiter.color.clone(),
                 tx.clone(),        name.clone(),         color.clone(),
+                mode,
             );
 
             session.send_to(0, ServerMsg::GameStart {
                 you_are: Player::Player1,
                 opponent_name: name.clone(),
                 opponent_color: color.clone(),
+                swedish_mode: mode,
             });
             session.send_to(1, ServerMsg::GameStart {
                 you_are: Player::Player2,
                 opponent_name: waiter.name.clone(),
                 opponent_color: waiter.color.clone(),
+                swedish_mode: mode,
             });
             let state_msg = ServerMsg::GameState { state: session.state.clone() };
             session.broadcast(&state_msg);
 
-            // Wake up player1's handler.
             let _ = waiter.session_ready.send(id);
             guard.sessions.insert(id, session);
             (id, 1usize)
         } else {
-            // We are player1 — park and wait.
             let (ready_tx, mut ready_rx) = oneshot::channel::<Uuid>();
             guard.waiting = Some(WaitingPlayer {
                 name: name.clone(),
                 color: color.clone(),
                 tx: tx.clone(),
+                swedish_mode,
                 session_ready: ready_tx,
             });
             drop(guard);
 
             let _ = tx.send(ServerMsg::Waiting);
 
-            // Block until matched or client disconnects.
             let matched = loop {
                 tokio::select! {
-                    result = &mut ready_rx => {
-                        break result.ok();
-                    }
+                    result = &mut ready_rx => { break result.ok(); }
                     msg = stream.next() => {
                         match msg {
                             None | Some(Ok(Message::Close(_))) | Some(Err(_)) => {
-                                // Client left the lobby; remove them.
                                 let mut g = lobby.lock().await;
                                 if matches!(&g.waiting, Some(w) if w.name == name) {
                                     g.waiting = None;
                                 }
                                 break None;
                             }
-                            _ => {} // ping/pong or stray messages — ignore
+                            _ => {}
                         }
                     }
                 }

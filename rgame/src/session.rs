@@ -16,6 +16,7 @@ pub struct GameSession {
     pub players: [Tx; 2],
     pub names: [String; 2],
     pub colors: [String; 2],
+    pub swedish_mode: bool,
 }
 
 impl GameSession {
@@ -23,13 +24,15 @@ impl GameSession {
         id: SessionId,
         p1_tx: Tx, p1_name: String, p1_color: String,
         p2_tx: Tx, p2_name: String, p2_color: String,
+        swedish_mode: bool,
     ) -> Self {
         GameSession {
             id,
-            state: GameState::new(),
+            state: GameState::new(swedish_mode),
             players: [p1_tx, p2_tx],
             names:   [p1_name, p2_name],
             colors:  [p1_color, p2_color],
+            swedish_mode,
         }
     }
 
@@ -44,12 +47,11 @@ impl GameSession {
     }
 }
 
-/// A player waiting in the lobby for an opponent.
 pub struct WaitingPlayer {
     pub name: String,
     pub color: String,
     pub tx: Tx,
-    /// Fulfilled by whoever creates the session (player2's handler).
+    pub swedish_mode: bool,
     pub session_ready: oneshot::Sender<SessionId>,
 }
 
