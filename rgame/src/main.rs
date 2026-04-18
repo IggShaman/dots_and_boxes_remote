@@ -32,6 +32,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/ws", get(ws_handler))
+        .route("/health", get(|| async { "ok" }))
         .layer(CorsLayer::permissive())
         .with_state(lobby);
 

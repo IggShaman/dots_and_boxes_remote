@@ -1,0 +1,32 @@
+# Run `flyctl launch` once to register the app, then `flyctl deploy` to ship.
+# Change `app` to your chosen name — must be globally unique on fly.io.
+
+app    = "dots-and-boxes-rgame"
+primary_region = "iad"   # US East; see `flyctl platform regions` for options
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port       = 3001
+  force_https         = true   # Fly terminates TLS; clients connect via wss://
+  auto_stop_machines  = true   # machine sleeps when idle (free-tier friendly)
+  auto_start_machines = true   # wakes on first connection (~1-2 s cold start)
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type       = "connections"
+    soft_limit = 20
+    hard_limit = 25
+
+[[http_service.checks]]
+  interval   = "15s"
+  timeout    = "5s"
+  grace_period = "10s"
+  method     = "GET"
+  path       = "/health"
+
+[[vm]]
+  memory   = "256mb"
+  cpu_kind = "shared"
+  cpus     = 1
