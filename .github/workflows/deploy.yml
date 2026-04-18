@@ -49,4 +49,4 @@ jobs:
             -H "Authorization: token ${{ secrets.HUB_DISPATCH_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/IggShaman/games-hub/dispatches \
-            -d '{"event_type":"game-updated","client_payload":{"game":"dots_and_boxes","repo":"IggShaman/dots_and_boxes"}}'
+            -d '{"event_type":"game-updated","client_payload":{"game":"dots_and_boxes_remote","repo":"IggShaman/dots_and_boxes_remote"}}'
