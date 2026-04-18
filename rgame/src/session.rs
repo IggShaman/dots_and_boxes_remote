@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{mpsc, oneshot, Mutex};
 use uuid::Uuid;
 
 use crate::game::GameState;
@@ -13,18 +13,23 @@ pub type Tx = mpsc::UnboundedSender<ServerMsg>;
 pub struct GameSession {
     pub id: SessionId,
     pub state: GameState,
-    /// Senders for player1 and player2 respectively
     pub players: [Tx; 2],
     pub names: [String; 2],
+    pub colors: [String; 2],
 }
 
 impl GameSession {
-    pub fn new(id: SessionId, p1_tx: Tx, p1_name: String, p2_tx: Tx, p2_name: String) -> Self {
+    pub fn new(
+        id: SessionId,
+        p1_tx: Tx, p1_name: String, p1_color: String,
+        p2_tx: Tx, p2_name: String, p2_color: String,
+    ) -> Self {
         GameSession {
             id,
             state: GameState::new(),
             players: [p1_tx, p2_tx],
-            names: [p1_name, p2_name],
+            names:   [p1_name, p2_name],
+            colors:  [p1_color, p2_color],
         }
     }
 
@@ -42,7 +47,10 @@ impl GameSession {
 /// A player waiting in the lobby for an opponent.
 pub struct WaitingPlayer {
     pub name: String,
+    pub color: String,
     pub tx: Tx,
+    /// Fulfilled by whoever creates the session (player2's handler).
+    pub session_ready: oneshot::Sender<SessionId>,
 }
 
 #[derive(Default)]

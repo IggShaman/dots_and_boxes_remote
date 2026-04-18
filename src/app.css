@@ -171,3 +171,26 @@ body {
   padding: 12px !important;
   background: #1e2229 !important;
 }
+
+/* ── Waiting screen ──────────────────────────────────────────────────────── */
+
+.waiting-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  padding-top: 60px;
+}
+.waiting-msg {
+  color: #8f99a8;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+/* ── You badge ───────────────────────────────────────────────────────────── */
+
+.you-badge {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #8f99a8;
+}

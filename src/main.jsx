@@ -1,15 +1,16 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom/client';
-import { Button, Card, Elevation, FormGroup, InputGroup, Intent } from '@blueprintjs/core';
+import {
+  Button, Card, Elevation, FormGroup, InputGroup, Intent, Spinner,
+} from '@blueprintjs/core';
 import '@blueprintjs/icons/lib/css/blueprint-icons.css';
 import '@blueprintjs/core/lib/css/blueprint.css';
 import 'normalize.css';
 import './app.css';
 import { GameBoard } from './GameBoard';
-import {
-  initGameState, makeMove,
-  isValidFirstPoint, validSecondPoints,
-} from './game';
+import { isValidFirstPoint, validSecondPoints } from './game';
+
+const WS_URL = 'ws://localhost:3001/ws';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -24,27 +25,19 @@ const PALETTE = [
   { label: 'Marigold',  value: '#c98a00' },
 ];
 
-const DEFAULT_PLAYERS = [
-  { name: 'Jungkook', color: PALETTE[0] },
-  { name: 'Rosé',     color: PALETTE[1] },
-];
+// ── ColorPicker ────────────────────────────────────────────────────────────
 
-// ── New-game screen ────────────────────────────────────────────────────────
-
-function ColorPicker({ selected, takenValue, onChange }) {
+function ColorPicker({ selected, onChange }) {
   return (
     <div className="color-swatches">
       {PALETTE.map(color => {
-        const isTaken    = color.value === takenValue;
         const isSelected = color.value === selected.value;
-        let cls = 'color-swatch';
-        if (isSelected) cls += ' swatch-selected';
-        if (isTaken)    cls += ' swatch-taken';
         return (
-          <div key={color.value} className={cls}
+          <div key={color.value}
+            className={`color-swatch${isSelected ? ' swatch-selected' : ''}`}
             style={{ backgroundColor: color.value }}
-            title={isTaken ? `${color.label} (taken)` : color.label}
-            onClick={() => { if (!isTaken) onChange(color); }}
+            title={color.label}
+            onClick={() => onChange(color)}
           />
         );
       })}
@@ -52,91 +45,95 @@ function ColorPicker({ selected, takenValue, onChange }) {
   );
 }
 
-function PlayerCard({ number, player, otherColor, onChange }) {
-  return (
-    <Card elevation={Elevation.THREE} className="player-card">
-      <div className="player-card-header">
-        <span className="player-badge" style={{ backgroundColor: player.color.value }}>
-          {number}
-        </span>
-        <p className="player-card-title">Player {number}</p>
-      </div>
-      <FormGroup label="Name">
-        <InputGroup
-          value={player.name}
-          onChange={e => onChange({ ...player, name: e.target.value })}
-          placeholder="Enter name…"
-          large
-        />
-      </FormGroup>
-      <FormGroup label="Color">
-        <ColorPicker
-          selected={player.color}
-          takenValue={otherColor}
-          onChange={color => onChange({ ...player, color })}
-        />
-      </FormGroup>
-      <div className="player-preview" style={{ backgroundColor: player.color.value }}>
-        {player.name.trim() || `Player ${number}`}
-      </div>
-    </Card>
-  );
-}
+// ── Join screen ────────────────────────────────────────────────────────────
 
-function NewGameScreen({ onStart }) {
-  const [players, setPlayers] = React.useState(DEFAULT_PLAYERS);
-  const update = (i, p) => setPlayers(prev => prev.map((x, j) => j === i ? p : x));
-
-  const namesOk  = players.every(p => p.name.trim().length > 0);
-  const colorsOk = players[0].color.value !== players[1].color.value;
-  const canStart = namesOk && colorsOk;
+function JoinScreen({ onJoin, connecting }) {
+  const [name,  setName]  = useState('');
+  const [color, setColor] = useState(PALETTE[0]);
 
   return (
     <>
       <h1 className="app-title">Dots &amp; Boxes</h1>
-      <p className="app-subtitle">A two-player game of lines and squares</p>
-      <div className="players-row">
-        <PlayerCard number={1} player={players[0]} otherColor={players[1].color.value}
-          onChange={p => update(0, p)} />
-        <PlayerCard number={2} player={players[1]} otherColor={players[0].color.value}
-          onChange={p => update(1, p)} />
-      </div>
-      <div className="start-row">
-        {!colorsOk && (
-          <span className="color-conflict-msg">Players must choose different colors.</span>
-        )}
-        <Button large intent={Intent.PRIMARY} disabled={!canStart}
-          onClick={() => onStart(players)} icon="play" text="Start Game" />
+      <p className="app-subtitle">Remote multiplayer — each player uses their own browser</p>
+
+      <Card elevation={Elevation.THREE} className="player-card" style={{ width: 320 }}>
+        <div className="player-card-header">
+          <span className="player-badge" style={{ backgroundColor: color.value }}>?</span>
+          <p className="player-card-title">Your Profile</p>
+        </div>
+        <FormGroup label="Name">
+          <InputGroup
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="Enter your name…"
+            large
+            disabled={connecting}
+          />
+        </FormGroup>
+        <FormGroup label="Color">
+          <ColorPicker selected={color} onChange={setColor} />
+        </FormGroup>
+        <div className="player-preview" style={{ backgroundColor: color.value }}>
+          {name.trim() || 'You'}
+        </div>
+      </Card>
+
+      <div className="start-row" style={{ marginTop: 24 }}>
+        <Button
+          large intent={Intent.PRIMARY}
+          disabled={!name.trim() || connecting}
+          loading={connecting}
+          onClick={() => onJoin({ name: name.trim(), color })}
+          icon="people"
+          text="Find Game"
+        />
       </div>
     </>
   );
 }
 
+// ── Waiting screen ─────────────────────────────────────────────────────────
+
+function WaitingScreen({ onCancel }) {
+  return (
+    <div className="waiting-screen">
+      <h1 className="app-title">Dots &amp; Boxes</h1>
+      <Spinner size={48} intent={Intent.PRIMARY} />
+      <p className="waiting-msg">Waiting for an opponent to join…</p>
+      <Button text="Cancel" onClick={onCancel} minimal />
+    </div>
+  );
+}
+
 // ── Game screen ────────────────────────────────────────────────────────────
 
-function GameScreen({ config, onNewGame }) {
-  const [gameState, setGameState] = React.useState(initGameState);
-  const [selected, setSelected]   = React.useState(null);
-  const { players } = config;
+function GameScreen({ gameState, players, youAre, disconnected, onMove, onNewGame }) {
+  const [selected, setSelected] = useState(null);
 
-  const pl = key => players[key === 'player1' ? 0 : 1];
+  // Clear selection whenever the board state changes (after any move).
+  useEffect(() => { setSelected(null); }, [gameState]);
+
+  if (!gameState) {
+    return <div className="waiting-screen"><Spinner size={32} /></div>;
+  }
+
+  const pl     = key => players[key === 'player1' ? 0 : 1];
+  const isMyTurn = !disconnected && !gameState.gameOver && gameState.currentPlayer === youAre;
 
   const handlePointClick = (r, c) => {
-    const gs = gameState;
-    if (gs.gameOver) return;
+    if (!isMyTurn) return;
 
     if (!selected) {
-      if (isValidFirstPoint(gs, r, c)) setSelected({ row: r, col: c });
+      if (isValidFirstPoint(gameState, r, c)) setSelected({ row: r, col: c });
     } else if (selected.row === r && selected.col === c) {
       setSelected(null);
     } else {
-      const isVSec = validSecondPoints(gs, selected.row, selected.col)
+      const isVSec = validSecondPoints(gameState, selected.row, selected.col)
         .some(p => p.row === r && p.col === c);
-
       if (isVSec) {
-        const next = makeMove(gs, selected.row, selected.col, r, c);
-        if (next) { setGameState(next); setSelected(null); }
-      } else if (isValidFirstPoint(gs, r, c)) {
+        onMove(selected.row, selected.col, r, c);
+        setSelected(null);
+      } else if (isValidFirstPoint(gameState, r, c)) {
         setSelected({ row: r, col: c });
       } else {
         setSelected(null);
@@ -153,21 +150,33 @@ function GameScreen({ config, onNewGame }) {
      : null)
     : null;
 
+  let bannerText;
+  if (disconnected)      bannerText = 'Opponent disconnected';
+  else if (gameOver)     bannerText = winner ? `${winner.name} wins!` : "It's a tie!";
+  else if (isMyTurn)     bannerText = 'Your turn';
+  else                   bannerText = `${curPl.name}'s turn`;
+
+  const bannerColor = (disconnected || gameOver) ? '#abb3bf' : curPl.color.value;
+
   return (
     <div className="game-screen">
 
       {/* Scoreboard */}
       <div className="score-row">
         {(['player1', 'player2']).map((key, i) => {
-          const p = players[i];
-          const active = currentPlayer === key && !gameOver;
+          const p      = players[i];
+          const active = currentPlayer === key && !gameOver && !disconnected;
+          const isMe   = key === youAre;
           return (
             <div key={key}
               className={`score-card ${active ? 'score-active' : ''}`}
               style={{ '--accent': p.color.value }}
             >
               <span className="score-dot" style={{ background: p.color.value }} />
-              <span className="score-name">{p.name}</span>
+              <span className="score-name">
+                {p.name}
+                {isMe && <span className="you-badge"> (you)</span>}
+              </span>
               <span className="score-num" style={{ color: p.color.value }}>
                 {scores[key]}&thinsp;sq
               </span>
@@ -177,10 +186,8 @@ function GameScreen({ config, onNewGame }) {
       </div>
 
       {/* Turn / result banner */}
-      <div className="turn-banner" style={{ color: gameOver ? '#abb3bf' : curPl.color.value }}>
-        {gameOver
-          ? (winner ? `${winner.name} wins!` : "It's a tie!")
-          : `${curPl.name}'s turn`}
+      <div className="turn-banner" style={{ color: bannerColor }}>
+        {bannerText}
       </div>
 
       {/* Board */}
@@ -190,6 +197,7 @@ function GameScreen({ config, onNewGame }) {
           players={players}
           selectedPoint={selected}
           onPointClick={handlePointClick}
+          interactive={isMyTurn}
         />
       </Card>
 
@@ -202,13 +210,106 @@ function GameScreen({ config, onNewGame }) {
 // ── App ────────────────────────────────────────────────────────────────────
 
 function App() {
-  const [screen, setScreen] = React.useState('new-game');
-  const [config, setConfig]  = React.useState(null);
+  // screen: 'join' | 'connecting' | 'waiting' | 'game' | 'disconnected'
+  const [screen,       setScreen]       = useState('join');
+  const [myConfig,     setMyConfig]     = useState(null);
+  const [youAre,       setYouAre]       = useState(null);   // 'player1' | 'player2'
+  const [opponentInfo, setOpponentInfo] = useState(null);   // { name, color }
+  const [gameState,    setGameState]    = useState(null);
 
-  if (screen === 'game') {
-    return <GameScreen config={config} onNewGame={() => setScreen('new-game')} />;
+  const wsRef     = useRef(null);
+  const screenRef = useRef(screen);
+  useEffect(() => { screenRef.current = screen; }, [screen]);
+
+  const handleJoin = (config) => {
+    setMyConfig(config);
+    setScreen('connecting');
+
+    const ws = new WebSocket(WS_URL);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ type: 'join', name: config.name, color: config.color.value }));
+    };
+
+    ws.onmessage = (evt) => {
+      const msg = JSON.parse(evt.data);
+      switch (msg.type) {
+        case 'waiting':
+          setScreen('waiting');
+          break;
+        case 'game_start':
+          setYouAre(msg.you_are);
+          setOpponentInfo({ name: msg.opponent_name, color: msg.opponent_color });
+          setGameState(null);
+          setScreen('game');
+          break;
+        case 'game_state':
+          setGameState(msg.state);
+          break;
+        case 'invalid_move':
+          console.warn('Server rejected move:', msg.reason);
+          break;
+        case 'opponent_disconnected':
+          setScreen('disconnected');
+          break;
+        default:
+          console.warn('Unknown message from server:', msg);
+      }
+    };
+
+    ws.onclose = () => {
+      const s = screenRef.current;
+      if (s === 'game')                         setScreen('disconnected');
+      else if (s !== 'disconnected' && s !== 'join') setScreen('join');
+    };
+  };
+
+  const handleNewGame = () => {
+    if (wsRef.current) {
+      wsRef.current.onclose = null; // suppress the onclose transition
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    setGameState(null);
+    setYouAre(null);
+    setOpponentInfo(null);
+    setScreen('join');
+  };
+
+  const sendMove = (r1, c1, r2, c2) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'move', r1, c1, r2, c2 }));
+    }
+  };
+
+  // Build the [player1, player2] array that GameBoard expects.
+  const buildPlayers = () => {
+    if (!myConfig || !opponentInfo) return null;
+    const me  = { name: myConfig.name,     color: myConfig.color };
+    const opp = { name: opponentInfo.name, color: { value: opponentInfo.color } };
+    return youAre === 'player1' ? [me, opp] : [opp, me];
+  };
+
+  if (screen === 'join' || screen === 'connecting') {
+    return <JoinScreen onJoin={handleJoin} connecting={screen === 'connecting'} />;
   }
-  return <NewGameScreen onStart={players => { setConfig({ players }); setScreen('game'); }} />;
+
+  if (screen === 'waiting') {
+    return <WaitingScreen onCancel={handleNewGame} />;
+  }
+
+  const players = buildPlayers();
+  return (
+    <GameScreen
+      gameState={gameState}
+      players={players}
+      youAre={youAre}
+      disconnected={screen === 'disconnected'}
+      onMove={sendMove}
+      onNewGame={handleNewGame}
+    />
+  );
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);

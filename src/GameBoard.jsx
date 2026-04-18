@@ -9,18 +9,18 @@ const SZ   = PAD * 2 + CELL * (GRID_SIZE - 1); // 500
 const px = c => PAD + c * CELL;
 const py = r => PAD + r * CELL;
 
-export function GameBoard({ gameState, players, selectedPoint, onPointClick }) {
+export function GameBoard({ gameState, players, selectedPoint, onPointClick, interactive = true }) {
   const [hovered, setHovered] = useState(null);
   const { points, hLines, vLines, squares, currentPlayer, gameOver } = gameState;
 
   const pcolor = key => key === 'player1' ? players[0].color.value : players[1].color.value;
   const curColor = pcolor(currentPlayer);
 
-  const valids = selectedPoint
+  const valids = selectedPoint && interactive
     ? validSecondPoints(gameState, selectedPoint.row, selectedPoint.col)
     : [];
   const isVSec  = (r, c) => valids.some(p => p.row === r && p.col === c);
-  const isVFst  = (r, c) => !selectedPoint && !gameOver && isValidFirstPoint(gameState, r, c);
+  const isVFst  = (r, c) => !selectedPoint && !gameOver && interactive && isValidFirstPoint(gameState, r, c);
 
   const previewTarget = hovered && isVSec(hovered.row, hovered.col) ? hovered : null;
 
@@ -109,7 +109,7 @@ export function GameBoard({ gameState, players, selectedPoint, onPointClick }) {
           return (
             <g key={`pt${r}_${c}`}
               cursor={clickable ? 'pointer' : 'default'}
-              onClick={() => !gameOver && onPointClick(r, c)}
+              onClick={() => interactive && !gameOver && onPointClick(r, c)}
               onMouseEnter={() => setHovered({ row: r, col: c })}
               onMouseLeave={() => setHovered(null)}
             >

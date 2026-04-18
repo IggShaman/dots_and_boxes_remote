@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 pub const GRID_SIZE: usize = 6;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "camelCase")]
 pub enum Player {
     Player1,
     Player2,
@@ -18,7 +18,15 @@ impl Player {
     }
 }
 
+/// Serializes as {"player1": N, "player2": N} — matches the JS `scores` shape.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Scores {
+    pub player1: u32,
+    pub player2: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GameState {
     /// points[r][c]: which player colored this point, if any
     pub points: Vec<Vec<Option<Player>>>,
@@ -28,8 +36,7 @@ pub struct GameState {
     pub v_lines: Vec<Vec<Option<Player>>>,
     /// squares[sr][sc]: owner of square with top-left at (sr,sc)
     pub squares: Vec<Vec<Option<Player>>>,
-    pub score_p1: u32,
-    pub score_p2: u32,
+    pub scores: Scores,
     pub current_player: Player,
     pub game_over: bool,
 }
@@ -37,12 +44,11 @@ pub struct GameState {
 impl GameState {
     pub fn new() -> Self {
         GameState {
-            points:   vec![vec![None; GRID_SIZE]; GRID_SIZE],
-            h_lines:  vec![vec![None; GRID_SIZE - 1]; GRID_SIZE],
-            v_lines:  vec![vec![None; GRID_SIZE]; GRID_SIZE - 1],
-            squares:  vec![vec![None; GRID_SIZE - 1]; GRID_SIZE - 1],
-            score_p1: 0,
-            score_p2: 0,
+            points:  vec![vec![None; GRID_SIZE]; GRID_SIZE],
+            h_lines: vec![vec![None; GRID_SIZE - 1]; GRID_SIZE],
+            v_lines: vec![vec![None; GRID_SIZE]; GRID_SIZE - 1],
+            squares: vec![vec![None; GRID_SIZE - 1]; GRID_SIZE - 1],
+            scores:  Scores { player1: 0, player2: 0 },
             current_player: Player::Player1,
             game_over: false,
         }
@@ -61,16 +67,15 @@ impl GameState {
         adjacent && self.get_line(r1, c1, r2, c2).is_none()
     }
 
-    /// Returns the at-most-2 square positions adjacent to the line (r1,c1)→(r2,c2).
     fn adjacent_squares(r1: usize, c1: usize, r2: usize, c2: usize) -> Vec<(usize, usize)> {
         let mut out = Vec::with_capacity(2);
         if r1 == r2 {
             let c = c1.min(c2);
-            if r1 > 0            { out.push((r1 - 1, c)); }
+            if r1 > 0             { out.push((r1 - 1, c)); }
             if r1 < GRID_SIZE - 1 { out.push((r1,     c)); }
         } else {
             let r = r1.min(r2);
-            if c1 > 0            { out.push((r, c1 - 1)); }
+            if c1 > 0             { out.push((r, c1 - 1)); }
             if c1 < GRID_SIZE - 1 { out.push((r, c1    )); }
         }
         out.retain(|&(sr, sc)| sr < GRID_SIZE - 1 && sc < GRID_SIZE - 1);
@@ -107,11 +112,10 @@ impl GameState {
         }
 
         match player {
-            Player::Player1 => self.score_p1 += gained,
-            Player::Player2 => self.score_p2 += gained,
+            Player::Player1 => self.scores.player1 += gained,
+            Player::Player2 => self.scores.player2 += gained,
         }
 
-        // Bonus turn if squares were completed; otherwise switch.
         if gained == 0 {
             self.current_player = player.other();
         }
