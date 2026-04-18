@@ -10,7 +10,7 @@ import './app.css';
 import { GameBoard } from './GameBoard';
 import { isValidFirstPoint, validSecondPoints } from './game';
 
-const WS_URL = 'ws://localhost:3001/ws';
+const WS_URL = import.meta.env.VITE_WS_URL;
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
