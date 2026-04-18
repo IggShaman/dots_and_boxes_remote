@@ -1,24 +1,64 @@
 # Dots & Boxes — Project Guide
 
+## Overview
+
+Remote two-player Dots & Boxes. Each player uses their own browser; moves flow through a Rust WebSocket server (`rgame`) that owns the authoritative game state.
+
 ## Running the project
 
 ```bash
-npm install
-npm run dev      # serves at http://localhost:3000
+# Terminal 1 — Rust game server (port 3001)
+cd rgame && cargo run
+
+# Terminal 2 — React frontend (port 3000)
+npm install && npm run dev
 ```
+
+Open two browser tabs to `http://localhost:3000`. Each player enters a name and color, clicks **Find Game**, and is matched automatically.
 
 ## Architecture
 
-Single-page React app bundled by Vite. All game logic is pure JS; the board is SVG.
-
 ```
-index.html          Vite entry point
+index.html              Vite entry point
 src/
-  main.jsx          App shell, NewGameScreen, GameScreen
-  GameBoard.jsx     SVG board renderer (points, lines, squares, hover/selection)
-  game.js           Pure game logic (no React)
-  app.css           Styles
+  main.jsx              JoinScreen, WaitingScreen, GameScreen; WebSocket client
+  GameBoard.jsx         SVG board (points, lines, squares, hover/selection)
+  game.js               Pure JS game logic — used client-side for UI hints only
+  app.css               Styles
+rgame/
+  src/
+    main.rs             Axum router — /ws endpoint, port 3001
+    game.rs             Authoritative game logic in Rust (mirrors game.js)
+    protocol.rs         JSON message types (ClientMsg / ServerMsg)
+    session.rs          GameSession, Lobby, WaitingPlayer (oneshot matchmaking)
+    ws.rs               WebSocket handler: join → matchmake → game loop → cleanup
 ```
+
+## WebSocket protocol
+
+**Client → Server**
+```json
+{ "type": "join",  "name": "Alice", "color": "#e03131" }
+{ "type": "move",  "r1": 0, "c1": 0, "r2": 0, "c2": 1 }
+```
+
+**Server → Client**
+```json
+{ "type": "waiting" }
+{ "type": "game_start", "you_are": "player1", "opponent_name": "Bob", "opponent_color": "#1971c2" }
+{ "type": "game_state", "state": { ... } }
+{ "type": "invalid_move", "reason": "Not your turn" }
+{ "type": "opponent_disconnected" }
+```
+
+`game_state.state` fields use camelCase (`hLines`, `vLines`, `currentPlayer`, `gameOver`, `scores.player1/2`) to match what `game.js` expects directly.
+
+## Matchmaking flow
+
+1. First player connects → parks in the lobby, receives `waiting`.
+2. Second player connects → lobby pairs them, creates a `GameSession`, sends `game_start` to both, broadcasts initial `game_state`.
+3. Player1's handler is unblocked via a `tokio::sync::oneshot` channel (no polling).
+4. On disconnect mid-game, the remaining player receives `opponent_disconnected`.
 
 ## Game rules
 
